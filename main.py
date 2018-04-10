@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+from eval import MetricEvaluator
 from data import DataLoader
 from config import load_config
 from model import Seq2Seq
@@ -32,16 +33,13 @@ torch.manual_seed(cf.seed)
 torch.cuda.manual_seed(cf.seed)
 
 loader = DataLoader(cf)
-
-trg_dict = loader.corpus.trg_params['idx2word']
-# Need to perform this for dynamic vocab
 cf.src_params['vocab_size'] = loader.corpus.src_params['vocab_size']
 cf.trg_params['vocab_size'] = loader.corpus.trg_params['vocab_size']
 
+evaluator = MetricEvaluator(loader)
+
 model = Seq2Seq(cf).cuda()
-model.criterion = nn.CrossEntropyLoss(
-    # ignore_index=loader.corpus.trg_params['word2idx']['<pad>']
-).cuda()
+model.criterion = nn.CrossEntropyLoss().cuda()
 
 optimizer = torch.optim.Adam(model.parameters())
 
@@ -50,44 +48,11 @@ if args.load_path:
     model.load_state_dict(torch.load(f))
 
 
-def compute_bleu(refs, hyps):
-    open('ref.txt', 'w').write('\n'.join(refs))
-    open('hyp.txt', 'w').write('\n'.join(hyps))
-    command = '$MOSES_ROOT/scripts/generic/multi-bleu.perl -lc ref.txt < hyp.txt'
-    proc = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True)
-    out, err = proc.communicate()
-    print(out)
-    score = float(out.decode("utf-8").split(' ')[2].split(',')[0])
-    return score
-
-
 def evaluate(split):
-    itr = loader.create_epoch_iterator('val', cf.batch_size)
-    model.eval()
     start = time.time()
     print('=' * 89)
     print("Startin evaluation on {} set...".format(split))
-
-    refs = []
-    hyps = []
-    costs = []
-    for i, (src, src_lengths, trg) in enumerate(itr):
-        loss = model.score(src, src_lengths, trg)
-
-        out = model.inference(
-            src, src_lengths,
-            sos=loader.corpus.trg_params['word2idx']['<s>']
-        )
-        out = out.cpu().data.tolist()
-        trg = trg.cpu().data.tolist()
-
-        for ref, hyp in zip(trg, out):
-            refs.append(loader.corpus.idx2sent(trg_dict, ref))
-            hyps.append(loader.corpus.idx2sent(trg_dict, hyp))
-
-        costs.append(loss.data[0])
-
-    score = compute_bleu(refs, hyps)
+    score, costs = evaluator.compute_scores(model, split, True)
     print('Validation completed! loss {:5.4f} | ppl {:8.4f} | BLEU {:5.4f}'.format(
             np.mean(costs), np.exp(np.mean(costs)), score)
           )
