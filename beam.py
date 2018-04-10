@@ -37,6 +37,7 @@ class BeamSearch(object):
         self.sos = word2idx['<s>']
         self.eos = word2idx['</s>']
         self.batch_size = batch_size
+        self.max_iters = 30
 
     def search(self, model, src):
         n_beams = src.size(0)
@@ -53,7 +54,7 @@ class BeamSearch(object):
             )
 
         # Repeat until all beams terminate
-        while True:
+        for i in range(self.max_iters):
             # Create the next iteration of beams
             new_beams = [Beam(self.beam_width) for i in range(n_beams)]
 
@@ -100,7 +101,7 @@ class BeamSearch(object):
 
                 h, c, h_hat = zip(*hidden_flat[i: i + self.batch_size])
                 try:
-                    batch_hidden = (torch.stack(h, 1), torch.stack(c, 1))
+                    batch_hidden = (torch.stack(h, 0), torch.stack(c, 0))
                     batch_h_hat = torch.stack(h_hat, 0)
                 except AttributeError:
                     batch_hidden = None
@@ -125,7 +126,7 @@ class BeamSearch(object):
                         new_beams[ptr].add(
                             batch_scores[i] * scores[i, j],
                             batch_prefix[i] + [next_words[i, j]],
-                            (hidden[0][:, i], hidden[1][:, i], h_hat[i]),
+                            (hidden[0][i], hidden[1][i], h_hat[i]),
                             next_words[i, j] == self.eos
                         )
 

@@ -71,7 +71,7 @@ def train():
         loss = model.score(src, src_lengths, trg)
         costs.append(loss.data[0])
 
-        model.zero_grad()
+        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 

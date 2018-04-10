@@ -21,12 +21,13 @@ class ScaledDotProductAttention(nn.Module):
         att_weights = key.bmm(value.transpose(1, 2)) * scale
         att_probs = F.softmax(att_weights, -1)
         att_outputs = att_probs.bmm(value)
-        return att_outputs
+        return att_outputs.squeeze(1)
 
 
 class Encoder(nn.Module):
     def __init__(self, cf):
         super().__init__()
+        self.drop = nn.Dropout(cf.src_params['dropout'])
         self.emb = nn.Embedding(
             cf.src_params['vocab_size'],
             cf.src_params['emb_size']
@@ -41,8 +42,6 @@ class Encoder(nn.Module):
             bidirectional=True,
         )
 
-        self.drop = nn.Dropout(cf.src_params['dropout'])
-
     def forward(self, src, lengths):
         src = self.drop(self.emb(src))
         src = pack_padded_sequence(src, lengths, batch_first=True)
@@ -54,17 +53,15 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self, cf):
         super().__init__()
+        self.drop = nn.Dropout(cf.trg_params['dropout'])
         self.emb = nn.Embedding(
             cf.trg_params['vocab_size'],
             cf.trg_params['emb_size']
         )
 
-        self.rnn = nn.LSTM(
+        self.rnn = nn.LSTMCell(
             cf.trg_params['emb_size'] + cf.trg_params['hidden_size'],
-            cf.trg_params['hidden_size'],
-            cf.trg_params['num_layers'],
-            dropout=cf.trg_params['dropout'],
-            batch_first=True
+            cf.trg_params['hidden_size']
         )
         self.att = ScaledDotProductAttention()
 
@@ -77,34 +74,40 @@ class Decoder(nn.Module):
             cf.trg_params['vocab_size']
         )
 
-        self.drop = nn.Dropout(cf.trg_params['dropout'])
         self.input_feed_init = nn.Parameter(
             torch.randn(cf.trg_params['hidden_size'])
+        )
+        self.hidden_init = nn.Parameter(
+            torch.randn(cf.trg_params['hidden_size'] * 2)
         )
 
     def forward(self, src, trg, hidden=None, h_hat_t=None):
         trg = self.drop(self.emb(trg))
 
         if h_hat_t is None:
-            h_hat_t = self.input_feed_init.expand(src.size(0), 1, -1)
+            h_hat_t = self.input_feed_init.expand(src.size(0), -1)
+
+        if hidden is None:
+            hidden = self.hidden_init.expand(src.size(0), -1)
+            hidden = hidden.split(hidden.size(-1) // 2, dim=-1)
 
         outputs = []
-        for x_t in trg.split(1, dim=1):
-            h_t, hidden = self.rnn(
+        for i in range(trg.size(1)):
+            x_t = trg[:, i]
+            hidden = self.rnn(
                 torch.cat([x_t, h_hat_t], -1),
                 hidden
             )
-            h_t = self.drop(h_t)
+            h_t = self.drop(hidden[0])
 
-            c_t = self.att(h_t, src)
+            c_t = self.att(h_t[:, None], src)
             h_hat_t = F.tanh(self.att_hidden(
                 torch.cat([h_t, c_t], -1)
             ))
-            out = self.fc(h_hat_t)
+            outputs.append(h_hat_t)
 
-            outputs.append(out)
-
-        return torch.cat(outputs, 1), hidden, h_hat_t
+        outputs = self.fc(torch.stack(outputs, 1))
+        return outputs, hidden, h_hat_t
 
 
 class Seq2Seq(nn.Module):
