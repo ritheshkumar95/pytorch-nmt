@@ -4,7 +4,6 @@ import argparse
 import subprocess
 import time
 from tqdm import tqdm
-import numpy as np
 
 import torch
 import torch.nn as nn

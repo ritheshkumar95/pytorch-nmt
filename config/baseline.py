@@ -8,7 +8,7 @@ log_interval = 100
 save_interval = None
 
 src_params = {
-    'lang': 'en',
+    'lang': 'de',
     'vocab_size': None,
     'emb_size': 128,
     'hidden_size': 128,
@@ -17,7 +17,7 @@ src_params = {
 }
 
 trg_params = {
-    'lang': 'de',
+    'lang': 'en',
     'vocab_size': None,
     'emb_size': 256,
     'hidden_size': 256,

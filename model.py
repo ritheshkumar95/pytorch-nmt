@@ -1,4 +1,5 @@
 import numpy as np
+import time
 
 import torch
 import torch.nn as nn
@@ -16,8 +17,8 @@ class ScaledDotProductAttention(nn.Module):
         super().__init__()
 
     def forward(self, key, value):
-        B, T, _ = key.size()
-        scale = 1. / np.sqrt(key.size(-1))
+        B, T, D = key.size()
+        scale = 1. / np.sqrt(D)
         att_weights = key.bmm(value.transpose(1, 2)) * scale
         att_probs = F.softmax(att_weights, -1)
         att_outputs = att_probs.bmm(value)
@@ -89,7 +90,7 @@ class Decoder(nn.Module):
 
         if hidden is None:
             hidden = self.hidden_init.expand(src.size(0), -1)
-            hidden = hidden.split(hidden.size(-1) // 2, dim=-1)
+            hidden = hidden.chunk(2, dim=-1)
 
         outputs = []
         for i in range(trg.size(1)):

@@ -92,7 +92,7 @@ class Corpus(object):
             )
         )
         print(
-            "Thresholding source vocab at: ({}/ {}) Last word: ({}, {})".format(
+            "Thresholding target vocab at: ({}/ {}) Last word: ({}, {})".format(
                 len(self.trg_params['idx2word']),
                 len(trg_vocab),
                 trg_vocab_reduced[0][-1],

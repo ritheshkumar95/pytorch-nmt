@@ -2,7 +2,6 @@
 import time
 from pathlib import Path
 import os
-import subprocess
 import argparse
 import numpy as np
 
@@ -40,6 +39,7 @@ evaluator = MetricEvaluator(loader)
 
 model = Seq2Seq(cf).cuda()
 model.criterion = nn.CrossEntropyLoss().cuda()
+print(model)
 
 optimizer = torch.optim.Adam(model.parameters())
 
@@ -80,8 +80,8 @@ def train():
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} completed | ms/batch {:5.2f} | '
                   'loss {:5.2f} | ppl {:8.2f}'.format(
-                      epoch, i * cf.batch_size, len(loader.corpus.data['train']),
-                      elapsed * 1000 / cf.log_interval, cur_loss, np.exp(cur_loss))
+                   epoch, i * cf.batch_size, len(loader.corpus.data['train']),
+                   elapsed * 1000 / cf.log_interval, cur_loss, np.exp(cur_loss))
                   )
             start_time = time.time()
 
