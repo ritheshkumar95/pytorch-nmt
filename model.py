@@ -13,12 +13,18 @@ def to_var(arr):
 
 
 class ScaledDotProductAttention(nn.Module):
-    def __init__(self):
+    def __init__(self, cf):
         super().__init__()
+        self.project = nn.Linear(
+            cf.trg_params['hidden_size'],
+            cf.src_params['hidden_size'] * 2
+        )
 
     def forward(self, key, value):
         B, T, D = key.size()
         scale = 1. / np.sqrt(D)
+
+        key = self.project(key)
         att_weights = key.bmm(value.transpose(1, 2)) * scale
         att_probs = F.softmax(att_weights, -1)
         att_outputs = att_probs.bmm(value)
@@ -64,10 +70,10 @@ class Decoder(nn.Module):
             cf.trg_params['emb_size'] + cf.trg_params['hidden_size'],
             cf.trg_params['hidden_size']
         )
-        self.att = ScaledDotProductAttention()
+        self.att = ScaledDotProductAttention(cf)
 
         self.att_hidden = nn.Linear(
-            cf.trg_params['hidden_size'] * 2,
+            cf.trg_params['hidden_size'] + cf.src_params['hidden_size'] * 2,
             cf.trg_params['hidden_size']
         )
         self.fc = nn.Linear(

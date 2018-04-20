@@ -1,26 +1,26 @@
 dataset_path = "/data/lisa/data/nmt-data/multi30k"
 seed = 111
 
-batch_size = 64
+batch_size = 32
 epochs = 100
 
 log_interval = 100
 save_interval = None
 
 src_params = {
-    'lang': 'de',
+    'lang': 'fr',
     'vocab_size': None,
-    'emb_size': 128,
-    'hidden_size': 128,
-    'num_layers': 1,
-    'dropout': .5
+    'emb_size': 300,
+    'hidden_size': 512,
+    'num_layers': 2,
+    'dropout': .3
 }
 
 trg_params = {
     'lang': 'en',
     'vocab_size': None,
-    'emb_size': 256,
-    'hidden_size': 256,
+    'emb_size': 300,
+    'hidden_size': 512,
     'num_layers': 1,
-    'dropout': .5
+    'dropout': .3
 }

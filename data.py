@@ -18,7 +18,10 @@ class Corpus(object):
         self.src_params = cf.src_params
         self.trg_params = cf.trg_params
 
-        dump_file = self.base_path / "processed_data.npy"
+        dump_file = self.base_path / \
+            "processed_{}-{}_data.npy".format(
+                self.src_params['lang'], self.trg_params['lang']
+            )
         if dump_file.exists():
             data = np.load(dump_file)
             self.src_params = data[0]
@@ -50,8 +53,8 @@ class Corpus(object):
         trg_data = {}
 
         for split in ['train', 'val', 'test']:
-            src_file = self.base_path / (split + '.tok.' + self.src_params['lang'])
-            trg_file = self.base_path / (split + '.tok.' + self.trg_params['lang'])
+            src_file = self.base_path / (split + '.' + self.src_params['lang'])
+            trg_file = self.base_path / (split + '.' + self.trg_params['lang'])
             src_data[split] = self.read_file(src_file)
             trg_data[split] = self.read_file(trg_file)
 
@@ -115,7 +118,10 @@ class Corpus(object):
         np.random.shuffle(self.data['train'])
 
         print("Finished processing data in {:5.4f}s".format(time.time() - start))
-        dump_file = self.base_path / "processed_data.npy"
+        dump_file = self.base_path / \
+            "processed_{}-{}_data.npy".format(
+                self.src_params['lang'], self.trg_params['lang']
+            )
         np.save(dump_file, (self.src_params, self.trg_params, self.data))
 
 
