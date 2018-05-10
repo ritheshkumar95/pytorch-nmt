@@ -66,54 +66,92 @@ class Decoder(nn.Module):
             cf.trg_params['emb_size']
         )
 
-        self.rnn = nn.LSTMCell(
+        self.f_rnn = nn.LSTMCell(
             cf.trg_params['emb_size'] + cf.trg_params['hidden_size'],
             cf.trg_params['hidden_size']
         )
-        self.att = ScaledDotProductAttention(cf)
+        self.b_rnn = nn.LSTMCell(
+            cf.trg_params['emb_size'] + cf.trg_params['hidden_size'],
+            cf.trg_params['hidden_size']
+        )
 
-        self.att_hidden = nn.Linear(
+        self.f_att = ScaledDotProductAttention(cf)
+        self.b_att = ScaledDotProductAttention(cf)
+
+        self.f_att_hidden = nn.Linear(
             cf.trg_params['hidden_size'] + cf.src_params['hidden_size'] * 2,
             cf.trg_params['hidden_size']
         )
+        self.b_att_hidden = nn.Linear(
+            cf.trg_params['hidden_size'] + cf.src_params['hidden_size'] * 2,
+            cf.trg_params['hidden_size']
+        )
+
         self.fc = nn.Linear(
-            cf.trg_params['hidden_size'],
+            2 * cf.trg_params['hidden_size'],
             cf.trg_params['vocab_size']
         )
 
         self.input_feed_init = nn.Parameter(
-            torch.randn(cf.trg_params['hidden_size'])
-        )
-        self.hidden_init = nn.Parameter(
             torch.randn(cf.trg_params['hidden_size'] * 2)
         )
+        self.hidden_init = nn.Parameter(
+            torch.randn(cf.trg_params['hidden_size'] * 2 * 2)
+        )
 
-    def forward(self, src, trg, hidden=None, h_hat_t=None):
+    def forward(self, src, trg, mask, hidden=None, h_hat_t=None):
         trg = self.drop(self.emb(trg))
 
         if h_hat_t is None:
             h_hat_t = self.input_feed_init.expand(src.size(0), -1)
+            f_h_hat_t, b_h_hat_t = h_hat_t.chunk(2, dim=1)
 
         if hidden is None:
             hidden = self.hidden_init.expand(src.size(0), -1)
-            hidden = hidden.chunk(2, dim=-1)
+            f_hidden, b_hidden = hidden.chunk(2, dim=-1)
+            f_hidden = f_hidden.chunk(2, dim=-1)  # (h, c)
+            b_hidden = b_hidden.chunk(2, dim=-1)  # (h, c)
 
-        outputs = []
+        f_outputs = []
         for i in range(trg.size(1)):
             x_t = trg[:, i]
-            hidden = self.rnn(
-                torch.cat([x_t, h_hat_t], -1),
-                hidden
+            f_hidden = self.f_rnn(
+                torch.cat([x_t, f_h_hat_t], -1),
+                f_hidden
             )
-            h_t = self.drop(hidden[0])
+            h_t = self.drop(f_hidden[0])
 
-            c_t = self.att(h_t[:, None], src)
-            h_hat_t = F.tanh(self.att_hidden(
+            c_t = self.f_att(h_t[:, None], src)
+            f_h_hat_t = F.tanh(self.b_att_hidden(
                 torch.cat([h_t, c_t], -1)
             ))
-            outputs.append(h_hat_t)
+            f_outputs.append(f_h_hat_t)
 
-        outputs = self.fc(torch.stack(outputs, 1))
+        b_outputs = []
+        for i in reversed(range(trg.size(1))):
+            x_t = trg[:, i]
+            m_t = mask[:, i]
+
+            b_hidden_new = self.b_rnn(
+                torch.cat([x_t, b_h_hat_t], -1),
+                b_hidden
+            )
+            b_hidden_0 = m_t[:, None] * b_hidden_new[0] + (1 - m_t[:, None]) * b_hidden[0]
+            b_hidden_1 = m_t[:, None] * b_hidden_new[1] + (1 - m_t[:, None]) * b_hidden[1]
+            b_hidden = (b_hidden_0, b_hidden_1)
+            h_t = self.drop(b_hidden[0])
+
+            c_t = self.b_att(h_t[:, None], src)
+            b_h_hat_t = F.tanh(self.f_att_hidden(
+                torch.cat([h_t, c_t], -1)
+            ))
+            b_outputs.append(b_h_hat_t)
+
+        f_outputs = torch.stack(f_outputs, 1)
+        b_outputs_cheat = torch.stack(b_outputs, 1)
+        b_outputs = torch.zeros_like(b_outputs_cheat)
+        b_outputs[:, :-2] = b_outputs_cheat[:, 2:]
+        outputs = self.fc(torch.cat([f_outputs, b_outputs], -1))
         return outputs, hidden, h_hat_t
 
 
@@ -124,9 +162,9 @@ class Seq2Seq(nn.Module):
         self.decoder = Decoder(cf)
         self.ntokens = cf.trg_params['vocab_size']
 
-    def forward(self, src, src_lengths, trg):
+    def forward(self, src, src_lengths, trg, mask):
         src = self.encoder(src, src_lengths)
-        return self.decoder(src, trg)[0]
+        return self.decoder(src, trg, mask)[0]
 
     def inference(self, src, src_lengths, sos, maxlen=30):
         src = self.encoder(src, src_lengths)
@@ -142,13 +180,11 @@ class Seq2Seq(nn.Module):
             outputs.append(x_t)
         return torch.cat(outputs, 1)
 
-    def score(self, src, src_lengths, trg):
-        source = trg[:, :-1]
+    def score(self, src, src_lengths, trg, mask):
         target = trg[:, 1:]
-
-        outputs = self.forward(src, src_lengths, source)
+        outputs = self.forward(src, src_lengths, trg, mask)[:, :-1]
         loss = self.criterion(
-            outputs.view(-1, self.ntokens),
+            outputs.contiguous().view(-1, self.ntokens),
             target.contiguous().view(-1)
         )
         return loss

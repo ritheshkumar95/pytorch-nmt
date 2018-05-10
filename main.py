@@ -49,16 +49,23 @@ if args.load_path:
 
 
 def evaluate(split):
+    model.eval()
+    itr = loader.create_epoch_iterator(split, cf.batch_size)
+    costs = []
     start = time.time()
     print('=' * 89)
     print("Startin evaluation on {} set...".format(split))
-    score, costs = evaluator.compute_scores(model, split, True)
-    print('Validation completed! loss {:5.4f} | ppl {:8.4f} | BLEU {:5.4f}'.format(
-            np.mean(costs), np.exp(np.mean(costs)), score)
+    with torch.no_grad():
+        for i, (src, src_lengths, trg, mask) in enumerate(itr):
+            loss = model.score(src, src_lengths, trg, mask)
+            costs.append(loss.item())
+    print('Validation completed! loss {:5.4f} | ppl {:8.4f}'.format(
+            np.mean(costs), np.exp(np.mean(costs)))
           )
     print("Took {:5.4f}s to validate!".format(time.time() - start))
     print('=' * 89)
-    return score
+
+    return np.exp(np.mean(costs))
 
 
 def train():
@@ -67,9 +74,9 @@ def train():
 
     costs = []
     start_time = time.time()
-    for i, (src, src_lengths, trg) in enumerate(itr):
-        loss = model.score(src, src_lengths, trg)
-        costs.append(loss.data[0])
+    for i, (src, src_lengths, trg, mask) in enumerate(itr):
+        loss = model.score(src, src_lengths, trg, mask)
+        costs.append(loss.item())
 
         optimizer.zero_grad()
         loss.backward()
@@ -95,6 +102,7 @@ try:
         train()
         val_score = evaluate('val')
         if val_score > best_val_score:
+            print("Saving model!")
             best_val_score = val_score
             f = os.path.join(args.save_path, 'model.pt')
             torch.save(model.state_dict(), f)
