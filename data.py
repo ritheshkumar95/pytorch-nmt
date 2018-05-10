@@ -142,9 +142,11 @@ class DataLoader(object):
         bsz = len(arr)
 
         padded_arr = np.full((bsz, maxlen), pad_idx, dtype='int64')
+        mask = np.zeros((bsz, maxlen), dtype='float32')
         for i in range(bsz):
             padded_arr[i, :lengths[i]] = arr[i]
-        return padded_arr, lengths
+            mask[i, :lengths[i]] = 1.
+        return padded_arr, lengths, mask
 
     def create_epoch_iterator(self, which_set, batch_size=64):
         data = self.corpus.data[which_set]
@@ -157,9 +159,9 @@ class DataLoader(object):
             src, trg = self.sort_data(src, trg)
 
             src, src_lengths = self.pad_and_mask(src, src_pad)
-            trg, _ = self.pad_and_mask(trg, trg_pad)
+            trg, _, mask = self.pad_and_mask(trg, trg_pad)
 
-            yield to_var(src), src_lengths, to_var(trg)
+            yield to_var(src), src_lengths, to_var(trg), to_var(mask)
 
 
 if __name__ == '__main__':
@@ -176,7 +178,7 @@ if __name__ == '__main__':
     for i in range(1000):
         start = time.time()
         try:
-            src, _, trg = itr.__next__()
+            src, _, trg, _ = itr.__next__()
         except StopIteration:
             itr = loader.create_epoch_iterator('train', 64)
             continue
