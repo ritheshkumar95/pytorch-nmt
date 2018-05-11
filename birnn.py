@@ -11,7 +11,7 @@ import torch.nn as nn
 from eval import MetricEvaluator
 from data import DataLoader
 from config import load_config
-from model import Seq2Seq
+from model import BiSeq2Seq
 
 
 def parse_args():
@@ -37,7 +37,7 @@ cf.trg_params['vocab_size'] = loader.corpus.trg_params['vocab_size']
 
 evaluator = MetricEvaluator(loader)
 
-model = Seq2Seq(cf).cuda()
+model = BiSeq2Seq(cf).cuda()
 model.criterion = nn.CrossEntropyLoss().cuda()
 print(model)
 
@@ -95,15 +95,15 @@ def train():
     return np.mean(costs)
 
 
-best_val_score = -1
+best_val_loss = 999
 try:
     for epoch in range(1, cf.epochs + 1):
         epoch_start_time = time.time()
         train()
-        val_score = evaluate('val')
-        if val_score > best_val_score:
+        val_loss = evaluate('val')
+        if val_loss < best_val_loss:
             print("Saving model!")
-            best_val_score = val_score
+            best_val_loss = val_loss
             f = os.path.join(args.save_path, 'model.pt')
             torch.save(model.state_dict(), f)
 except KeyboardInterrupt:
@@ -114,5 +114,7 @@ except KeyboardInterrupt:
 with open(os.path.join(args.save_path, 'model.pt'), 'rb') as f:
     model.load_state_dict(torch.load(f))
 
+# Run on val data.
+evaluate('val')
 # Run on test data.
 evaluate('test')

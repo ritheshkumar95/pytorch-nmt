@@ -178,7 +178,7 @@ if __name__ == '__main__':
     for i in range(1000):
         start = time.time()
         try:
-            src, _, trg, _ = itr.__next__()
+            src, _, trg, mask = itr.__next__()
         except StopIteration:
             itr = loader.create_epoch_iterator('train', 64)
             continue
@@ -188,4 +188,5 @@ if __name__ == '__main__':
     for i in range(64):
         print(loader.corpus.idx2sent(src_dict, src[i].data))
         print(loader.corpus.idx2sent(trg_dict, trg[i].data))
+        print(mask[i].data)
         input()

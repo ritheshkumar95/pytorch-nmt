@@ -13,14 +13,14 @@ src_params = {
     'emb_size': 300,
     'hidden_size': 512,
     'num_layers': 2,
-    'dropout': .3
+    'dropout': .5
 }
 
 trg_params = {
-    'lang': 'fr',
+    'lang': 'de',
     'vocab_size': None,
     'emb_size': 300,
     'hidden_size': 512,
     'num_layers': 1,
-    'dropout': .3
+    'dropout': .5
 }
