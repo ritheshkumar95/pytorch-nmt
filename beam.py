@@ -112,6 +112,7 @@ class BeamSearch(object):
                 output, hidden, h_hat = model(
                     batch_src,
                     batch_x_t,
+                    torch.ones_like(batch_src).float(),
                     batch_hidden,
                     batch_h_hat
                 )

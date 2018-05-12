@@ -99,8 +99,9 @@ class Decoder(nn.Module):
             hidden = hidden.chunk(2, dim=-1)
 
         outputs = []
-        for i in range(trg.size(1)):
+        for i in reversed(range(trg.size(1))):
             x_t = trg[:, i]
+
             hidden = self.rnn(
                 torch.cat([x_t, h_hat_t], -1),
                 hidden
@@ -180,7 +181,7 @@ class BiRNNDecoder(nn.Module):
                 torch.cat([x_t, f_h_hat_t], -1),
                 f_hidden
             )
-            h_t = f_hidden[0]
+            h_t = self.drop(f_hidden[0])
 
             c_t = self.f_att(h_t[:, None], src)
             f_h_hat_t = F.tanh(self.b_att_hidden(
@@ -197,10 +198,10 @@ class BiRNNDecoder(nn.Module):
                 torch.cat([x_t, b_h_hat_t], -1),
                 b_hidden
             )
-            # b_hidden_0 = m_t[:, None] * b_hidden_new[0] + (1 - m_t[:, None]) * b_hidden[0]
-            # b_hidden_1 = m_t[:, None] * b_hidden_new[1] + (1 - m_t[:, None]) * b_hidden[1]
-            b_hidden_0 = m_t[:, None] * b_hidden_new[0]
-            b_hidden_1 = m_t[:, None] * b_hidden_new[1]
+            b_hidden_0 = m_t[:, None] * b_hidden_new[0] + (1 - m_t[:, None]) * b_hidden[0]
+            b_hidden_1 = m_t[:, None] * b_hidden_new[1] + (1 - m_t[:, None]) * b_hidden[1]
+            # b_hidden_0 = m_t[:, None] * b_hidden_new[0]
+            # b_hidden_1 = m_t[:, None] * b_hidden_new[1]
             b_hidden = (b_hidden_0, b_hidden_1)
             h_t = b_hidden[0]
 
@@ -235,6 +236,7 @@ class Seq2Seq(nn.Module):
         src = self.encoder(src, src_lengths)
         x_t = np.full((src.size(0), 1), sos).astype('int64')
         x_t = to_var(x_t)
+        # mask = torch.ones_like(x_t).float()
 
         h_t = None
         h_hat_t = None
@@ -248,9 +250,10 @@ class Seq2Seq(nn.Module):
     def score(self, src, src_lengths, trg, mask):
         source = trg[:, :-1]
         target = trg[:, 1:]
-        mask = mask[:, 1:].contiguous()
 
         outputs = self.forward(src, src_lengths, source)
+
+        mask = mask[:, 1:].contiguous()
         loss = self.criterion(
             outputs.view(-1, self.ntokens),
             target.contiguous().view(-1)
