@@ -10,17 +10,17 @@ save_interval = None
 src_params = {
     'lang': 'en',
     'vocab_size': None,
-    'emb_size': 300,
+    'emb_size': 512,
     'hidden_size': 512,
     'num_layers': 2,
-    'dropout': .5
+    'dropout': 0.5
 }
 
 trg_params = {
     'lang': 'de',
     'vocab_size': None,
-    'emb_size': 300,
+    'emb_size': 512,
     'hidden_size': 512,
-    'num_layers': 1,
-    'dropout': .5
+    'num_layers': 2,
+    'dropout': 0.5
 }

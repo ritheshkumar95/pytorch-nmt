@@ -65,8 +65,7 @@ class MetricEvaluator(object):
 
             if self.beam_search is None:
                 out = model.inference(
-                    src, src_lengths,
-                    sos=self.sos
+                    src, src_lengths, sos=self.sos
                 )
                 out = out.cpu().data.tolist()
             else:
@@ -106,6 +105,7 @@ if __name__ == '__main__':
     print('=' * 89)
     print("Startin evaluation on test set...")
     start = time.time()
+    evaluator.compute_scores(model, 'val')
     evaluator.compute_scores(model, 'test')
     print("Took {:5.4f}s to validate!".format(time.time() - start))
     print('=' * 89)

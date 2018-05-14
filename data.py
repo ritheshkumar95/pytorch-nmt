@@ -128,6 +128,10 @@ class Corpus(object):
 class DataLoader(object):
     def __init__(self, cf):
         self.corpus = Corpus(cf)
+        self.max_src_len = max([len(x[0]) for x in self.corpus.data['train']])
+        self.max_trg_len = max([len(x[1]) for x in self.corpus.data['train']])
+        print("Maximum source length: ", self.max_src_len)
+        print("Maximum target length: ", self.max_trg_len)
 
     def sort_data(self, src, trg):
         lengths = np.asarray([len(x) for x in src])
@@ -136,9 +140,10 @@ class DataLoader(object):
         sorted_trg = np.asarray(trg, dtype=object)[idxs]
         return sorted_src.tolist(), sorted_trg.tolist()
 
-    def pad_and_mask(self, arr, pad_idx):
+    def pad_and_mask(self, arr, pad_idx, maxlen=None):
         lengths = [len(x) for x in arr]
-        maxlen = max(lengths)
+        if not maxlen:
+            maxlen = max(lengths)
         bsz = len(arr)
 
         padded_arr = np.full((bsz, maxlen), pad_idx, dtype='int64')
@@ -178,7 +183,7 @@ if __name__ == '__main__':
     for i in range(1000):
         start = time.time()
         try:
-            src, _, trg, mask = itr.__next__()
+            src, trg, trg_lengths = itr.__next__()
         except StopIteration:
             itr = loader.create_epoch_iterator('train', 64)
             continue

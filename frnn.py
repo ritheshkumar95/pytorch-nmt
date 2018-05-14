@@ -38,7 +38,7 @@ cf.trg_params['vocab_size'] = loader.corpus.trg_params['vocab_size']
 evaluator = MetricEvaluator(loader)
 
 model = Seq2Seq(cf).cuda()
-model.criterion = nn.CrossEntropyLoss().cuda()
+model.criterion = nn.CrossEntropyLoss(reduce=False).cuda()
 print(model)
 
 optimizer = torch.optim.Adam(model.parameters())
