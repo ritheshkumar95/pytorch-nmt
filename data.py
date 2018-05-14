@@ -161,7 +161,7 @@ class DataLoader(object):
 
         for i in range(0, len(data), batch_size):
             src, trg = zip(*data[i: i + batch_size])
-            src, trg = self.sort_data(src, trg)
+            # src, trg = self.sort_data(src, trg)
 
             src, src_lengths, _ = self.pad_and_mask(src, src_pad)
             trg, _, mask = self.pad_and_mask(trg, trg_pad)
@@ -183,7 +183,7 @@ if __name__ == '__main__':
     for i in range(1000):
         start = time.time()
         try:
-            src, trg, trg_lengths = itr.__next__()
+            src, src_lengths, trg, mask = itr.__next__()
         except StopIteration:
             itr = loader.create_epoch_iterator('train', 64)
             continue
@@ -192,6 +192,8 @@ if __name__ == '__main__':
 
     for i in range(64):
         print(loader.corpus.idx2sent(src_dict, src[i].data))
+        print(src_lengths)
+        import ipdb ; ipdb.set_trace()
         print(loader.corpus.idx2sent(trg_dict, trg[i].data))
         print(mask[i].data)
         input()

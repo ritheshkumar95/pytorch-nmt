@@ -26,14 +26,29 @@ class Encoder(nn.Module):
             cf.src_params['hidden_size'],
             cf.src_params['num_layers'],
             dropout=cf.src_params['dropout'],
-            batch_first=True
+            batch_first=True,
+            bidirectional=True
         )
 
     def forward(self, src, lengths):
+        sorted_lengths, idxs = torch.sort(
+            torch.tensor(lengths).cuda(), dim=0, descending=True
+        )
+        _, inverse_idxs = torch.sort(
+            idxs, dim=0
+        )
+        src = src[idxs]
+
         src = self.drop(self.emb(src))
-        src = pack_padded_sequence(src, lengths, batch_first=True)
+        src = pack_padded_sequence(src, sorted_lengths.tolist(), batch_first=True)
         out, hidden = self.rnn(src)
-        out = pad_packed_sequence(out, batch_first=True)
+
+        f_h = hidden[0][::2, inverse_idxs]
+        f_c = hidden[1][::2, inverse_idxs]
+        b_h = hidden[0][1::2, inverse_idxs]
+        b_c = hidden[1][1::2, inverse_idxs]
+
+        hidden = (torch.cat([f_h, b_h], -1), torch.cat([f_c, b_c], -1))
         return hidden
 
 
