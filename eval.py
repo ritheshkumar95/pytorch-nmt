@@ -58,9 +58,9 @@ class MetricEvaluator(object):
         refs = []
         hyps = []
         costs = []
-        for i, (src, src_lengths, trg, mask) in tqdm(enumerate(itr)):
+        for i, (src, src_lengths, trg, trg_lengths, mask) in tqdm(enumerate(itr)):
             if compute_ppl:
-                loss = model.score(src, src_lengths, trg, mask)
+                loss = model.score(src, src_lengths, trg, mask)[0]
                 costs.append(loss.item())
 
             if self.beam_search is None:

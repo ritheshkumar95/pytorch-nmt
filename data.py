@@ -161,12 +161,11 @@ class DataLoader(object):
 
         for i in range(0, len(data), batch_size):
             src, trg = zip(*data[i: i + batch_size])
-            # src, trg = self.sort_data(src, trg)
 
             src, src_lengths, _ = self.pad_and_mask(src, src_pad)
-            trg, _, mask = self.pad_and_mask(trg, trg_pad)
+            trg, trg_lengths, mask = self.pad_and_mask(trg, trg_pad)
 
-            yield to_var(src), src_lengths, to_var(trg), to_var(mask)
+            yield to_var(src), src_lengths, to_var(trg), trg_lengths, to_var(mask)
 
 
 if __name__ == '__main__':

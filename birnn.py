@@ -56,8 +56,8 @@ def evaluate(split):
     print('=' * 89)
     print("Startin evaluation on {} set...".format(split))
     with torch.no_grad():
-        for i, (src, src_lengths, trg, mask) in enumerate(itr):
-            loss = model.score(src, src_lengths, trg, mask)
+        for i, (src, src_lengths, trg, trg_lengths, mask) in enumerate(itr):
+            loss = model.score(src, src_lengths, trg, trg_lengths, mask)
             costs.append(loss.item())
     print('Validation completed! loss {:5.4f} | ppl {:8.4f}'.format(
             np.mean(costs), np.exp(np.mean(costs)))
@@ -74,8 +74,8 @@ def train():
 
     costs = []
     start_time = time.time()
-    for i, (src, src_lengths, trg, mask) in enumerate(itr):
-        loss = model.score(src, src_lengths, trg, mask)
+    for i, (src, src_lengths, trg, trg_lengths, mask) in enumerate(itr):
+        loss = model.score(src, src_lengths, trg, trg_lengths, mask)[0]
         costs.append(loss.item())
 
         optimizer.zero_grad()
