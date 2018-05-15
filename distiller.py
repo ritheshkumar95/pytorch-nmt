@@ -89,9 +89,9 @@ def train():
         bidir_logits = bidir_model.score(
             src, src_lengths, trg, trg_lengths, mask
         )[1]
-        fwd_logits = fwd_model.score(
+        loss, fwd_logits = fwd_model.score(
             src, src_lengths, trg, mask
-        )[1]
+        )
 
         fwd_log_p = F.log_softmax(fwd_logits, -1)
         bidir_log_p = F.log_softmax(bidir_logits, -1)
@@ -103,17 +103,17 @@ def train():
         )
         kl_cost = (kl_cost * mask.unsqueeze(-1)).sum() / mask.sum()
 
-        costs.append(kl_cost.item())
+        costs.append([loss.item(), kl_cost.item()])
 
         optimizer.zero_grad()
-        kl_cost.backward()
+        (loss + kl_cost).backward()
         optimizer.step()
 
         if i % cf.log_interval == 0 and i > 0:
-            cur_loss = np.asarray(costs)[-cf.log_interval:].mean()
+            cur_loss = np.asarray(costs)[-cf.log_interval:].mean(0)
             elapsed = time.time() - start_time
             print('| epoch {:3d} | {:5d}/{:5d} completed | ms/batch {:5.2f} | '
-                  'loss {:5.2f} | ppl {:8.2f}'.format(
+                  'loss {} | ppl {}'.format(
                       epoch, i *
                       cf.batch_size, len(loader.corpus.data['train']),
                       elapsed * 1000 / cf.log_interval, cur_loss, np.exp(cur_loss))
@@ -128,8 +128,8 @@ try:
     for epoch in range(1, cf.epochs + 1):
         epoch_start_time = time.time()
         train()
-        val_loss = evaluate('val')
-        if val_loss < best_val_loss:
+        val_score = evaluate('val')
+        if val_score > best_val_score:
             print("Saving model!")
             best_val_loss = val_loss
             f = os.path.join(args.save_path, 'model.pt')
